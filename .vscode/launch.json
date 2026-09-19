@@ -1,0 +1,46 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+    
+        {
+            "name": "ekyc-demo",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "ekyc-demo (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "ekyc-demo (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "liveness_sdk",
+            "cwd": "packages/liveness_sdk",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "liveness_sdk (profile mode)",
+            "cwd": "packages/liveness_sdk",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "liveness_sdk (release mode)",
+            "cwd": "packages/liveness_sdk",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
