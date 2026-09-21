@@ -1,0 +1,29 @@
+name: ktp_scanner
+description: "Reusable on-device KTP (Indonesian ID card) OCR scanner: capture UI, field extraction and portrait photo cropping."
+version: 1.0.0
+publish_to: "none"
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Full screen capture UI bundled with the module.
+  camera: ^0.11.0+2
+
+  # On-device OCR used to extract the printed fields.
+  google_mlkit_text_recognition: ^0.15.0
+
+  # On-device face detection used to locate the portrait photo.
+  google_mlkit_face_detection: ^0.13.1
+
+  # Orientation baking and portrait cropping.
+  image: ^4.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0

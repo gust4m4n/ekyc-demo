@@ -7,13 +7,14 @@ import '../camera/capture_camera_page.dart';
 import '../models/ekyc_draft.dart';
 import '../state/ekyc_controller.dart';
 import '../theme/brand.dart';
+import '../utils/image_compressor.dart';
 import '../utils/image_info.dart';
 import '../utils/validators.dart';
 import '../widgets/guideline_list.dart';
 import '../widgets/step_scaffold.dart';
-import 'liveness_screen.dart';
+import 'selfie_with_ktp_screen.dart';
 
-/// Step 5 — selfie photo.
+/// Step 3 — selfie photo.
 class SelfieScreen extends StatefulWidget {
   const SelfieScreen({super.key, this.returnToReview = false});
 
@@ -60,12 +61,24 @@ class _SelfieScreenState extends State<SelfieScreen> {
     final file = File(result.path);
     final longestEdge = await longestEdgeOf(file);
     final error = validatePhotoFile(file, longestEdge: longestEdge);
+
+    // Checked at full resolution, stored downscaled and mirrored back to the
+    // way the user framed it in the preview.
+    final stored = error == null
+        ? await compressToJpeg(
+            file,
+            maxWidth: kSelfieMaxWidth,
+            maxHeight: kSelfieMaxHeight,
+            mirror: true,
+            deleteSource: true,
+          )
+        : null;
     if (!mounted) return;
 
     setState(() {
       _checking = false;
       _error = error;
-      _pendingFile = error == null ? file : null;
+      _pendingFile = stored;
     });
   }
 
@@ -87,7 +100,7 @@ class _SelfieScreenState extends State<SelfieScreen> {
     }
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const LivenessScreen()));
+    ).push(MaterialPageRoute(builder: (_) => const SelfieWithKtpScreen()));
   }
 
   @override
@@ -95,7 +108,7 @@ class _SelfieScreenState extends State<SelfieScreen> {
     final file = _pendingFile;
 
     return StepScaffold(
-      step: 5,
+      step: 3,
       title: 'Selfie',
       actions: file == null
           ? ElevatedButton.icon(
@@ -126,7 +139,7 @@ class _SelfieScreenState extends State<SelfieScreen> {
             'Take a photo of your face',
             subtitle:
                 'This photo is used to simulate a match against the portrait '
-                'on your identity document.',
+                'printed on your KTP.',
           ),
           const SizedBox(height: 20),
           Center(

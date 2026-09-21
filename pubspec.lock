@@ -219,6 +219,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.1"
+  google_mlkit_text_recognition:
+    dependency: transitive
+    description:
+      name: google_mlkit_text_recognition
+      sha256: "10a8d1a64fa21efda89514f6df88bbb7885be3ae1bfb7a6d229132d802a20d22"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.15.1"
   html:
     dependency: transitive
     description:
@@ -228,7 +236,7 @@ packages:
     source: hosted
     version: "0.15.7"
   image:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: image
       sha256: "4e973fcf4caae1a4be2fa0a13157aa38a8f9cb049db6529aa00b4d71abc4d928"
@@ -243,6 +251,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.9.0"
+  ktp_scanner:
+    dependency: "direct main"
+    description:
+      path: "packages/ktp_scanner"
+      relative: true
+    source: path
+    version: "1.0.0"
   lints:
     dependency: transitive
     description:

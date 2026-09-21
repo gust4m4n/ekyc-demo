@@ -1,93 +1,52 @@
 import 'dart:math';
 
 import 'package:flutter/widgets.dart';
+import 'package:ktp_scanner/ktp_scanner.dart';
 
-import '../config/country_profile.dart';
-import '../config/country_profiles.dart';
 import '../models/ekyc_draft.dart';
 
 /// Holds the in-memory eKYC draft for the current session.
+///
+/// Capture order: liveness video, selfie, selfie holding the KTP, then the
+/// scanned KTP whose fields become the KYC record.
 class EKycController extends ChangeNotifier {
-  CountryProfile _country = kDefaultCountryProfile;
   ConsentData? _consent;
-  IdentityData? _identity;
-  AddressData? _address;
-  MediaAsset? _documentFront;
-  MediaAsset? _documentBack;
-  MediaAsset? _selfiePhoto;
   MediaAsset? _livenessVideo;
-
-  /// Market the whole flow is configured for.
-  CountryProfile get country => _country;
+  MediaAsset? _selfiePhoto;
+  MediaAsset? _selfieWithKtpPhoto;
+  MediaAsset? _ktpPhoto;
+  MediaAsset? _ktpPortrait;
+  KtpDetails _ktpDetails = const KtpDetails.empty();
+  bool _ktpConfirmed = false;
 
   ConsentData? get consent => _consent;
-  IdentityData? get identity => _identity;
-  AddressData? get address => _address;
-  MediaAsset? get documentFront => _documentFront;
-  MediaAsset? get documentBack => _documentBack;
-  MediaAsset? get selfiePhoto => _selfiePhoto;
   MediaAsset? get livenessVideo => _livenessVideo;
+  MediaAsset? get selfiePhoto => _selfiePhoto;
+  MediaAsset? get selfieWithKtpPhoto => _selfieWithKtpPhoto;
+  MediaAsset? get ktpPhoto => _ktpPhoto;
 
-  /// Document the user said they would present; drives the capture frame.
-  DocumentType get documentType =>
-      _identity?.documentType ?? _country.defaultDocument;
+  /// Portrait cropped off the card by the scanner, when a face was found.
+  MediaAsset? get ktpPortrait => _ktpPortrait;
+
+  KtpDetails get ktpDetails => _ktpDetails;
 
   bool get hasConsent => _consent?.accepted ?? false;
-  bool get hasIdentity => _identity != null;
-  bool get hasAddress => _address != null;
+  bool get hasLiveness => _livenessVideo != null;
+  bool get hasSelfie => _selfiePhoto != null;
+  bool get hasSelfieWithKtp => _selfieWithKtpPhoto != null;
+  bool get hasKtpPhoto => _ktpPhoto != null;
 
-  /// The back side stays optional: not every document carries data on it.
+  /// True once the user has reviewed the OCR output on the edit screen. The
+  /// values themselves are taken as given: a worn card does not always read.
+  bool get hasKtpDetails => _ktpConfirmed;
+
   bool get hasMedia =>
-      _documentFront != null && _selfiePhoto != null && _livenessVideo != null;
+      hasLiveness && hasSelfie && hasSelfieWithKtp && hasKtpPhoto;
 
-  bool get isReadyToSubmit =>
-      hasConsent && hasIdentity && hasAddress && hasMedia;
-
-  /// Switching market invalidates identity and address, which were validated
-  /// against the previous country's rules.
-  void setCountry(CountryProfile value) {
-    if (_country.code == value.code) return;
-    _country = value;
-    _identity = null;
-    _address = null;
-    notifyListeners();
-  }
+  bool get isReadyToSubmit => hasConsent && hasMedia && hasKtpDetails;
 
   void acceptConsent() {
     _consent = ConsentData(accepted: true, acceptedAt: DateTime.now());
-    notifyListeners();
-  }
-
-  void setIdentity(IdentityData value) {
-    _identity = value;
-    notifyListeners();
-  }
-
-  void setAddress(AddressData value) {
-    _address = value;
-    notifyListeners();
-  }
-
-  void setDocumentFront(MediaAsset value) {
-    _replaceFile(_documentFront, value);
-    _documentFront = value;
-    notifyListeners();
-  }
-
-  void setDocumentBack(MediaAsset? value) {
-    if (value == null) {
-      _deleteFile(_documentBack);
-      _documentBack = null;
-    } else {
-      _replaceFile(_documentBack, value);
-      _documentBack = value;
-    }
-    notifyListeners();
-  }
-
-  void setSelfiePhoto(MediaAsset value) {
-    _replaceFile(_selfiePhoto, value);
-    _selfiePhoto = value;
     notifyListeners();
   }
 
@@ -97,18 +56,62 @@ class EKycController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setSelfiePhoto(MediaAsset value) {
+    _replaceFile(_selfiePhoto, value);
+    _selfiePhoto = value;
+    notifyListeners();
+  }
+
+  void setSelfieWithKtpPhoto(MediaAsset value) {
+    _replaceFile(_selfieWithKtpPhoto, value);
+    _selfieWithKtpPhoto = value;
+    notifyListeners();
+  }
+
+  /// Stores a scan: the orientation-corrected card image, the portrait cropped
+  /// off it and the fields OCR read. The fields stay unconfirmed until the
+  /// user reviews them on the next step.
+  void setKtpScan({
+    required MediaAsset photo,
+    MediaAsset? portrait,
+    required KtpData data,
+  }) {
+    _replaceFile(_ktpPhoto, photo);
+    _ktpPhoto = photo;
+
+    if (portrait == null) {
+      _deleteFile(_ktpPortrait);
+      _ktpPortrait = null;
+    } else {
+      _replaceFile(_ktpPortrait, portrait);
+      _ktpPortrait = portrait;
+    }
+
+    _ktpDetails = KtpDetails.fromScan(data);
+    _ktpConfirmed = false;
+    notifyListeners();
+  }
+
+  /// Accepts the fields as shown on the edit screen, corrections included.
+  void confirmKtpDetails(KtpDetails value) {
+    _ktpDetails = value;
+    _ktpConfirmed = true;
+    notifyListeners();
+  }
+
   /// Drops the draft and removes the captured media from disk.
   void clear() {
     for (final asset in _assets) {
       _deleteFile(asset);
     }
     _consent = null;
-    _identity = null;
-    _address = null;
-    _documentFront = null;
-    _documentBack = null;
-    _selfiePhoto = null;
     _livenessVideo = null;
+    _selfiePhoto = null;
+    _selfieWithKtpPhoto = null;
+    _ktpPhoto = null;
+    _ktpPortrait = null;
+    _ktpDetails = const KtpDetails.empty();
+    _ktpConfirmed = false;
     notifyListeners();
   }
 
@@ -120,10 +123,11 @@ class EKycController extends ChangeNotifier {
   }
 
   List<MediaAsset?> get _assets => [
-    _documentFront,
-    _documentBack,
-    _selfiePhoto,
     _livenessVideo,
+    _selfiePhoto,
+    _selfieWithKtpPhoto,
+    _ktpPhoto,
+    _ktpPortrait,
   ];
 
   void _replaceFile(MediaAsset? previous, MediaAsset next) {

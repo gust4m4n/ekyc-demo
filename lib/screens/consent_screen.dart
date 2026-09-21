@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../config/country_profile.dart';
-import '../config/country_profiles.dart';
 import '../state/ekyc_controller.dart';
 import '../theme/brand.dart';
-import '../widgets/form_fields.dart';
 import '../widgets/step_scaffold.dart';
-import 'identity_screen.dart';
+import 'liveness_screen.dart';
 
-/// Step 1 — introduction, market selection and consent.
+/// Step 1 — introduction and consent.
 class ConsentScreen extends StatefulWidget {
   const ConsentScreen({super.key});
 
@@ -23,7 +20,7 @@ class _ConsentScreenState extends State<ConsentScreen> {
     EKycScope.read(context).acceptConsent();
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const IdentityScreen()));
+    ).push(MaterialPageRoute(builder: (_) => const LivenessScreen()));
   }
 
   void _showPrivacyNotice() {
@@ -50,16 +47,15 @@ class _ConsentScreenState extends State<ConsentScreen> {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'This application is a demonstration. Your identity data, '
-                  'document photos, selfie and liveness video are kept on '
-                  'this device only, for the duration of the session.\n\n'
-                  'Nothing is uploaded to a server, no government registry is '
-                  'contacted, and no account is opened. The media you capture '
-                  'is deleted when the demo ends or when you choose to erase '
-                  'it.\n\n'
-                  'Your document number and mobile number are masked on the '
-                  'summary screen, and no sensitive value is written to the '
-                  'application logs.',
+                  'This application is a demonstration. Your liveness video, '
+                  'selfies, KTP photo and the data read off the card are kept '
+                  'on this device only, for the duration of the session.\n\n'
+                  'The KTP is read by an on-device OCR engine: the photo is '
+                  'never uploaded, no government registry is contacted, and '
+                  'no account is opened. The media you capture is deleted '
+                  'when the demo ends or when you choose to erase it.\n\n'
+                  'Your NIK is masked on the summary screen, and no sensitive '
+                  'value is written to the application logs.',
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.6,
@@ -76,12 +72,6 @@ class _ConsentScreenState extends State<ConsentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final draft = EKycScope.of(context);
-    final country = draft.country;
-    final documents = country.acceptedDocuments
-        .map((type) => type.label.toLowerCase())
-        .join(', ');
-
     return StepScaffold(
       step: 1,
       title: 'Identity verification',
@@ -105,34 +95,31 @@ class _ConsentScreenState extends State<ConsentScreen> {
           const SectionTitle(
             'Identity verification',
             subtitle:
-                'This takes about 3–5 minutes. Have your identity document '
-                'ready and find a well-lit spot.',
+                'This takes about 3–5 minutes. Have your KTP ready and find a '
+                'well-lit spot.',
           ),
           const SizedBox(height: 20),
-          LabeledDropdown<CountryProfile>(
-            label: 'Country or region',
-            value: country,
-            items: kSelectableCountryProfiles,
-            itemLabel: (profile) => '${profile.name} (${profile.code})',
-            enabled: kSelectableCountryProfiles.length > 1,
-            onChanged: (profile) {
-              if (profile != null) draft.setCountry(profile);
-            },
-          ),
-          _ChecklistItem(
-            icon: Icons.badge_outlined,
-            title: 'An accepted identity document',
-            subtitle: 'In ${country.name}: $documents.',
+          const _ChecklistItem(
+            icon: Icons.videocam_outlined,
+            title: 'A liveness check',
+            subtitle: 'A short video where you follow a few prompts.',
           ),
           const _ChecklistItem(
-            icon: Icons.photo_camera_outlined,
-            title: 'Camera access',
-            subtitle: 'For the document photo, selfie and liveness video.',
+            icon: Icons.face_outlined,
+            title: 'Two selfies',
+            subtitle: 'One of your face, one of you holding your KTP.',
+          ),
+          const _ChecklistItem(
+            icon: Icons.badge_outlined,
+            title: 'Your KTP',
+            subtitle:
+                'Photographed and read on this device. Your details are '
+                'filled in for you; you can correct them afterwards.',
           ),
           const _ChecklistItem(
             icon: Icons.lightbulb_outline_rounded,
             title: 'Even lighting',
-            subtitle: 'Avoid shadows and glare on the document and your face.',
+            subtitle: 'Avoid shadows and glare on the card and your face.',
           ),
           const SizedBox(height: 16),
           const InfoBanner(
@@ -187,13 +174,13 @@ class _ChecklistItem extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: BrandColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(10),
+              shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 20, color: BrandColors.primary),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,6 +198,7 @@ class _ChecklistItem extends StatelessWidget {
                   subtitle,
                   style: const TextStyle(
                     fontSize: 13,
+                    height: 1.4,
                     color: BrandColors.muted,
                   ),
                 ),

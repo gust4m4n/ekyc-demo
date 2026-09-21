@@ -40,8 +40,16 @@ dependencies:
   liveness_sdk:
     path: packages/liveness_sdk
 
+  # Reusable KTP capture, OCR and portrait extraction module, shared with the
+  # ktp-ocr-scanner project.
+  ktp_scanner:
+    path: packages/ktp_scanner
+
   # e-KTP and selfie capture screens.
   camera: ^0.11.0+2
+
+  # Downscaling and JPEG re-encoding of the stored photos.
+  image: ^4.3.0
 
   # Playback of the recorded liveness clip.
   video_player: ^2.9.2

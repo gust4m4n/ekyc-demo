@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import '../config/country_profile.dart';
+import 'package:ktp_scanner/ktp_scanner.dart';
 
-/// Session-scoped draft of everything the user entered.
+/// Session-scoped draft of everything the user captured.
 ///
 /// Nothing here is persisted to disk or sent anywhere: the demo keeps it in
 /// memory only.
@@ -13,68 +13,46 @@ class ConsentData {
   final DateTime acceptedAt;
 }
 
-class IdentityData {
-  const IdentityData({
-    required this.documentType,
-    required this.documentNumber,
-    required this.issuingCountry,
-    required this.givenNames,
-    required this.familyName,
-    required this.birthDate,
-    required this.birthPlace,
-    required this.nationality,
-    required this.occupation,
-    this.documentExpiry,
-  });
+/// Width divided by height of a KTP (ID-1, ISO/IEC 7810).
+const double kKtpAspectRatio = 1.586;
 
-  final DocumentType documentType;
-  final String documentNumber;
+/// The KTP fields as they stand after OCR plus any correction the user made.
+///
+/// The demo collects no identity data beyond what is printed on the card, so
+/// this is the whole KYC record.
+class KtpDetails {
+  const KtpDetails(this.values);
 
-  /// ISO 3166-1 alpha-2 code of the authority that issued the document.
-  final String issuingCountry;
+  const KtpDetails.empty() : values = const {};
 
-  final String givenNames;
-  final String familyName;
-  final DateTime birthDate;
-  final String birthPlace;
-  final String nationality;
-  final String occupation;
+  /// Seeds the record from a scan; unreadable fields are simply absent.
+  factory KtpDetails.fromScan(KtpData data) {
+    return KtpDetails({
+      for (final field in data.fields)
+        if (field.value.trim().isNotEmpty) field.key: field.value.trim(),
+    });
+  }
 
-  /// Null for documents that never expire, such as most national ID cards.
-  final DateTime? documentExpiry;
+  final Map<KtpFieldKey, String> values;
 
-  String get fullName => '$givenNames $familyName';
-}
+  String? operator [](KtpFieldKey key) {
+    final value = values[key]?.trim();
+    return (value == null || value.isEmpty) ? null : value;
+  }
 
-/// A postal address entered as one free text line plus the three
-/// administrative levels picked from the dependent dropdowns.
-class AddressData {
-  const AddressData({
-    required this.street,
-    required this.province,
-    required this.city,
-    required this.district,
-    required this.postalCode,
-    required this.countryCode,
-  });
+  bool get isEmpty => values.values.every((value) => value.trim().isEmpty);
 
-  final String street;
-  final String province;
-  final String city;
-  final String district;
-  final String postalCode;
-  final String countryCode;
+  /// Fields that carry a value, in the order they are printed on the card.
+  List<KtpField> get filled => [
+    for (final key in KtpFieldKey.values)
+      if (this[key] != null) KtpField(key, this[key]!),
+  ];
 
-  /// Single line rendering used by the review screen.
-  String format(String countryName) {
-    return [
-      street,
-      district,
-      city,
-      province,
-      postalCode,
-      countryName,
-    ].where((part) => part.trim().isNotEmpty).join(', ');
+  KtpDetails withValues(Map<KtpFieldKey, String> edits) {
+    return KtpDetails({
+      for (final entry in edits.entries)
+        if (entry.value.trim().isNotEmpty) entry.key: entry.value.trim(),
+    });
   }
 }
 

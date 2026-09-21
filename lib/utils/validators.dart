@@ -1,12 +1,6 @@
 import 'dart:io';
 
-import '../config/country_profile.dart';
-
 /// Formatting, masking and validation helpers shared by the eKYC steps.
-///
-/// Nothing in here assumes a particular country: every country-specific rule
-/// arrives as a [PatternRule] or a plain parameter from the active
-/// [CountryProfile].
 const List<String> _months = [
   'January',
   'February',
@@ -61,108 +55,8 @@ String maskDocumentNumber(String value) {
   return '$head${'•' * (value.length - headLength - tailLength)}$tail';
 }
 
-int calculateAge(DateTime birthDate, {DateTime? now}) {
-  final today = now ?? DateTime.now();
-  var age = today.year - birthDate.year;
-  final hadBirthday =
-      today.month > birthDate.month ||
-      (today.month == birthDate.month && today.day >= birthDate.day);
-  if (!hadBirthday) age -= 1;
-  return age;
-}
-
-/// ---------------------------------------------------------------- validators
-/// Each returns `null` when the value is acceptable, or an English message.
-
-String? validateDocumentNumber(String? value, PatternRule rule, String label) {
-  final input = (value ?? '').trim().toUpperCase();
-  if (input.isEmpty) return '$label is required.';
-  if (!rule.matches(input)) {
-    return '$label must be ${rule.requirement}.';
-  }
-  return null;
-}
-
-/// Accepts every script, plus the separators that appear in legal names
-/// (spaces, hyphens, apostrophes, periods). The old ASCII-only rule rejected
-/// names such as `Müller`, `O'Brien-Ng` or `José`.
-final RegExp _nameExpression = RegExp(
-  r"^[\p{L}\p{M}][\p{L}\p{M} .'\u2019-]*$",
-  unicode: true,
-);
-
-String? validateName(String? value, String label, {int min = 1, int max = 70}) {
-  final input = (value ?? '').trim();
-  if (input.isEmpty) return '$label is required.';
-  if (input.length < min || input.length > max) {
-    return '$label must be $min–$max characters.';
-  }
-  if (!_nameExpression.hasMatch(input)) {
-    return '$label may only contain letters, spaces, hyphens, apostrophes '
-        'and periods.';
-  }
-  return null;
-}
-
-String? validateLength(
-  String? value,
-  String label, {
-  required int min,
-  required int max,
-}) {
-  final input = (value ?? '').trim();
-  if (input.isEmpty) return '$label is required.';
-  if (input.length < min || input.length > max) {
-    return '$label must be $min–$max characters.';
-  }
-  return null;
-}
-
-String? validateBirthDate(DateTime? value, {required int minimumAge}) {
-  if (value == null) return 'Date of birth is required.';
-  if (value.isAfter(DateTime.now())) {
-    return 'Date of birth cannot be in the future.';
-  }
-  if (calculateAge(value) < minimumAge) {
-    return 'You must be at least $minimumAge years old to continue.';
-  }
-  return null;
-}
-
-String? validateExpiryDate(DateTime? value, {required bool required}) {
-  if (value == null) return required ? 'Expiry date is required.' : null;
-  if (!value.isAfter(DateTime.now())) {
-    return 'This document has expired. Use a valid document.';
-  }
-  return null;
-}
-
-/// Skipped entirely when the country has no postal code system.
-String? validatePostalCode(String? value, PatternRule? rule, String label) {
-  if (rule == null) return null;
-  final input = (value ?? '').trim().toUpperCase();
-  if (input.isEmpty) return '$label is required.';
-  if (!rule.matches(input)) return '$label must be ${rule.requirement}.';
-  return null;
-}
-
-String? validateRequiredChoice(Object? value, String label) {
-  if (value == null || (value is String && value.isEmpty)) {
-    return 'Select a $label.';
-  }
-  return null;
-}
-
-/// One named rule in an ordered list, so a screen can surface the first
-/// failure only instead of every message at once.
-class FieldCheck {
-  const FieldCheck(this.field, this.run);
-
-  final String field;
-  final String? Function() run;
-}
-
 /// ------------------------------------------------------------- media helpers
+/// Each validator returns `null` when the file is acceptable, or a message.
 const int kMaxPhotoBytes = 10 * 1024 * 1024;
 const int kMaxVideoBytes = 25 * 1024 * 1024;
 const int kMinPhotoLongEdge = 1280;

@@ -13,6 +13,10 @@ enum CaptureGuide {
 
   /// Face oval used by the selfie step.
   faceOval,
+
+  /// Head-and-shoulders frame with a card outline at chest height, used when
+  /// the user must appear together with the KTP.
+  portraitWithCard,
 }
 
 /// Full screen camera used for the document and selfie captures.
@@ -26,6 +30,7 @@ class CaptureCameraPage extends StatefulWidget {
     required this.guide,
     required this.lensDirection,
     this.guideAspectRatio = 1.586,
+    this.mirrorPreview = true,
   });
 
   final String title;
@@ -36,6 +41,10 @@ class CaptureCameraPage extends StatefulWidget {
   /// Width divided by height of the document frame, e.g. 1.586 for an ID-1
   /// card and 1.42 for a passport data page.
   final double guideAspectRatio;
+
+  /// The platform mirrors a front-camera preview. Set false to show the true
+  /// image instead, which keeps text on a held document readable.
+  final bool mirrorPreview;
 
   @override
   State<CaptureCameraPage> createState() => _CaptureCameraPageState();
@@ -185,7 +194,12 @@ class _CaptureCameraPageState extends State<CaptureCameraPage>
     return Stack(
       fit: StackFit.expand,
       children: [
-        _FullScreenPreview(controller: controller),
+        _FullScreenPreview(
+          controller: controller,
+          unmirror:
+              !widget.mirrorPreview &&
+              widget.lensDirection == CameraLensDirection.front,
+        ),
         CustomPaint(
           painter: _GuideOverlayPainter(
             guide: widget.guide,
@@ -251,24 +265,30 @@ class _CaptureCameraPageState extends State<CaptureCameraPage>
 }
 
 class _FullScreenPreview extends StatelessWidget {
-  const _FullScreenPreview({required this.controller});
+  const _FullScreenPreview({required this.controller, this.unmirror = false});
 
   final CameraController controller;
+
+  /// Cancels the platform's front-camera mirroring.
+  final bool unmirror;
 
   @override
   Widget build(BuildContext context) {
     final size = controller.value.previewSize;
-    if (size == null) return CameraPreview(controller);
+    final preview = size == null
+        ? CameraPreview(controller)
+        : FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              // `previewSize` is reported in landscape orientation.
+              width: size.height,
+              height: size.width,
+              child: CameraPreview(controller),
+            ),
+          );
 
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        // `previewSize` is reported in landscape orientation.
-        width: size.height,
-        height: size.width,
-        child: CameraPreview(controller),
-      ),
-    );
+    if (!unmirror) return preview;
+    return Transform.flip(flipX: true, child: preview);
   }
 }
 
@@ -391,6 +411,31 @@ class _GuideOverlayPainter extends CustomPainter {
       );
       hole = Path()
         ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(16)));
+    } else if (guide == CaptureGuide.portraitWithCard) {
+      final width = size.width * 0.86;
+      final rect = Rect.fromCenter(
+        center: Offset(size.width / 2, size.height * 0.44),
+        width: width,
+        height: width * 1.25,
+      );
+      hole = Path()
+        ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(20)));
+
+      // Hint of where the card should sit, drawn inside the frame rather than
+      // cut out of the scrim.
+      final cardWidth = width * 0.52;
+      final card = Rect.fromCenter(
+        center: Offset(size.width / 2, rect.bottom - cardWidth / aspectRatio),
+        width: cardWidth,
+        height: cardWidth / aspectRatio,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(card, const Radius.circular(8)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = BrandColors.primarySoft,
+      );
     } else {
       final width = size.width * 0.68;
       final rect = Rect.fromCenter(

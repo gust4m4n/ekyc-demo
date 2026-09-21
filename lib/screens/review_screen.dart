@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:ktp_scanner/ktp_scanner.dart';
 
 import '../models/ekyc_draft.dart';
 import '../state/ekyc_controller.dart';
@@ -8,18 +9,19 @@ import '../theme/brand.dart';
 import '../utils/validators.dart';
 import '../widgets/step_scaffold.dart';
 import '../widgets/video_preview_player.dart';
-import 'address_screen.dart';
-import 'document_screen.dart';
-import 'identity_screen.dart';
+import 'ktp_data_screen.dart';
+import 'ktp_scan_screen.dart';
 import 'liveness_screen.dart';
 import 'selfie_screen.dart';
+import 'selfie_with_ktp_screen.dart';
 import 'success_screen.dart';
 
-/// Step 7 — `Review your details`.
+/// Step 7 — everything captured, on one screen.
 ///
-/// Everything the user entered, every photo and the liveness clip live on this
-/// single vertically scrollable page. Media is enlarged in a modal on top of
-/// the same screen; no detail route is ever pushed.
+/// The liveness clip, the selfie, the selfie with the KTP, the card photo and
+/// the (corrected) card data all live on this single vertically scrollable
+/// page. Media is enlarged in a modal on top of the same screen; no detail
+/// route is ever pushed.
 class ReviewScreen extends StatelessWidget {
   const ReviewScreen({super.key});
 
@@ -54,19 +56,9 @@ class ReviewScreen extends StatelessWidget {
             ),
             for (final entry in <(String, IconData, Widget)>[
               (
-                'Identity details',
-                Icons.person_outline_rounded,
-                const IdentityScreen(returnToReview: true),
-              ),
-              (
-                'Address',
-                Icons.home_outlined,
-                const AddressScreen(returnToReview: true),
-              ),
-              (
-                'Document photo',
-                Icons.badge_outlined,
-                const DocumentScreen(returnToReview: true),
+                'Liveness video',
+                Icons.videocam_outlined,
+                const LivenessScreen(returnToReview: true),
               ),
               (
                 'Selfie',
@@ -74,9 +66,19 @@ class ReviewScreen extends StatelessWidget {
                 const SelfieScreen(returnToReview: true),
               ),
               (
-                'Liveness video',
-                Icons.videocam_outlined,
-                const LivenessScreen(returnToReview: true),
+                'Selfie with KTP',
+                Icons.badge_outlined,
+                const SelfieWithKtpScreen(returnToReview: true),
+              ),
+              (
+                'KTP photo (rescan)',
+                Icons.document_scanner_outlined,
+                const KtpScanScreen(returnToReview: true),
+              ),
+              (
+                'KTP details',
+                Icons.edit_note_rounded,
+                const KtpDataScreen(returnToReview: true),
               ),
             ])
               ListTile(
@@ -106,14 +108,12 @@ class ReviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final draft = EKycScope.of(context);
-    final country = draft.country;
-    final identity = draft.identity;
-    final address = draft.address;
+    final details = draft.ktpDetails;
+    final liveness = draft.livenessVideo;
 
     return StepScaffold(
       step: 7,
-      title: 'Review your details',
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      title: 'Review everything',
       actions: Row(
         children: [
           Expanded(
@@ -146,121 +146,29 @@ class ReviewScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _ReviewCard(
-            title: 'IDENTITY',
-            complete: identity != null,
+            title: 'LIVENESS VIDEO',
+            complete: liveness != null,
             onEdit: () =>
-                _edit(context, const IdentityScreen(returnToReview: true)),
-            children: identity == null
-                ? const []
-                : [
-                    _ReviewRow('Full name', identity.fullName),
-                    _ReviewRow('Document type', identity.documentType.label),
-                    _ReviewRow(
-                      country.documentNumberLabel(identity.documentType),
-                      maskDocumentNumber(identity.documentNumber),
-                    ),
-                    if (identity.documentExpiry != null)
-                      _ReviewRow(
-                        'Expires on',
-                        formatDate(identity.documentExpiry!),
-                      ),
-                    _ReviewRow('Date of birth', formatDate(identity.birthDate)),
-                    _ReviewRow('Place of birth', identity.birthPlace),
-                    _ReviewRow('Nationality', identity.nationality),
-                    _ReviewRow('Occupation', identity.occupation),
-                    _ReviewRow('Issuing country', country.name),
-                  ],
-          ),
-          _ReviewCard(
-            title: 'ADDRESS',
-            complete: address != null,
-            onEdit: () =>
-                _edit(context, const AddressScreen(returnToReview: true)),
-            children: address == null
-                ? const []
-                : [
-                    _ReviewRow(
-                      'Registered address',
-                      address.format(country.name),
-                    ),
-                    _ReviewRow('Province', address.province),
-                    _ReviewRow('City or regency', address.city),
-                    _ReviewRow('District', address.district),
-                  ],
-          ),
-          _ReviewCard(
-            title: 'DOCUMENT & BIOMETRICS',
-            complete: draft.hasMedia,
-            onEdit: () => _showEditSheet(context),
+                _edit(context, const LivenessScreen(returnToReview: true)),
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _MediaThumbnail(
-                      label: draft.documentType.frontLabel,
-                      asset: draft.documentFront,
-                      aspectRatio: draft.documentType.aspectRatio,
-                      onEmptyTap: () => _edit(
-                        context,
-                        const DocumentScreen(returnToReview: true),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MediaThumbnail(
-                      label: 'Selfie',
-                      asset: draft.selfiePhoto,
-                      aspectRatio: 1,
-                      onEmptyTap: () => _edit(
-                        context,
-                        const SelfieScreen(returnToReview: true),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (draft.documentBack != null) ...[
-                const SizedBox(height: 16),
-                _MediaThumbnail(
-                  label: 'Back side',
-                  asset: draft.documentBack,
-                  aspectRatio: draft.documentType.aspectRatio,
-                  onEmptyTap: () => _edit(
-                    context,
-                    const DocumentScreen(returnToReview: true),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              const Text(
-                'Liveness video',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: BrandColors.primaryDark,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (draft.livenessVideo != null)
+              if (liveness != null)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     VideoPreviewPlayer(
+                      // The SDK always writes to the same filename, so key on
+                      // mtime to force a fresh controller after a re-record.
                       key: ValueKey(
-                        draft.livenessVideo!.file
-                            .lastModifiedSync()
-                            .millisecondsSinceEpoch,
+                        liveness.file.lastModifiedSync().millisecondsSinceEpoch,
                       ),
-                      file: draft.livenessVideo!.file,
+                      file: liveness.file,
                       height: 240,
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Length '
-                      '${formatDuration(Duration(milliseconds: ((draft.livenessVideo!.durationSeconds ?? 0) * 1000).round()))}'
-                      ' • ${draft.livenessVideo!.readableSize}',
+                      '${formatDuration(Duration(milliseconds: ((liveness.durationSeconds ?? 0) * 1000).round()))}'
+                      ' • ${liveness.readableSize}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: BrandColors.muted,
@@ -278,6 +186,82 @@ class ReviewScreen extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+          _ReviewCard(
+            title: 'PHOTOS',
+            complete:
+                draft.hasSelfie && draft.hasSelfieWithKtp && draft.hasKtpPhoto,
+            onEdit: () => _showEditSheet(context),
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _MediaThumbnail(
+                      label: 'Selfie',
+                      asset: draft.selfiePhoto,
+                      aspectRatio: 1,
+                      onEmptyTap: () => _edit(
+                        context,
+                        const SelfieScreen(returnToReview: true),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MediaThumbnail(
+                      label: 'Selfie with KTP',
+                      asset: draft.selfieWithKtpPhoto,
+                      aspectRatio: 1,
+                      onEmptyTap: () => _edit(
+                        context,
+                        const SelfieWithKtpScreen(returnToReview: true),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _MediaThumbnail(
+                label: 'KTP photo',
+                asset: draft.ktpPhoto,
+                aspectRatio: kKtpAspectRatio,
+                onEmptyTap: () =>
+                    _edit(context, const KtpScanScreen(returnToReview: true)),
+              ),
+              if (draft.ktpPortrait != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: 120,
+                  child: _MediaThumbnail(
+                    label: 'Portrait on card',
+                    asset: draft.ktpPortrait,
+                    aspectRatio: 0.8,
+                    onEmptyTap: () => _edit(
+                      context,
+                      const KtpScanScreen(returnToReview: true),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          _ReviewCard(
+            title: 'KTP DATA',
+            complete: draft.hasKtpDetails,
+            onEdit: () =>
+                _edit(context, const KtpDataScreen(returnToReview: true)),
+            children: details.isEmpty
+                ? const []
+                : [
+                    for (final field in details.filled)
+                      _ReviewRow(
+                        field.label,
+                        field.key == KtpFieldKey.nik
+                            ? maskDocumentNumber(field.value)
+                            : field.value,
+                      ),
+                  ],
           ),
           _ReviewCard(
             title: 'CONSENT',
@@ -374,12 +358,14 @@ class _ReviewCard extends StatelessWidget {
                       color: BrandColors.danger,
                     ),
                     SizedBox(width: 8),
-                    Text(
-                      'Incomplete — tap to finish this section',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: BrandColors.danger,
+                    Expanded(
+                      child: Text(
+                        'Incomplete — tap to finish this section',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: BrandColors.danger,
+                        ),
                       ),
                     ),
                   ],
@@ -466,9 +452,7 @@ class _MediaThumbnail extends StatelessWidget {
               right: 4,
               child: IconButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.close_rounded),
-                color: Colors.white,
-                style: IconButton.styleFrom(backgroundColor: Colors.black45),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
               ),
             ),
           ],
@@ -479,7 +463,9 @@ class _MediaThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = asset;
+    final asset = this.asset;
+    final file = asset?.file;
+    final exists = file != null && file.existsSync();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -493,47 +479,45 @@ class _MediaThumbnail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        if (media != null && media.file.existsSync())
+        if (exists)
           GestureDetector(
-            onTap: () => _openModal(context, media.file),
+            onTap: () => _openModal(context, file),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: aspectRatio,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(media.file, fit: BoxFit.cover),
-                    const Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: Icon(
-                        Icons.zoom_out_map_rounded,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
+                child: Image.file(
+                  file,
+                  key: ValueKey(asset!.uri),
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
           )
         else
-          AspectRatio(
-            aspectRatio: aspectRatio,
-            child: _EmptyMediaBox(label: 'No photo yet', onTap: onEmptyTap),
+          _EmptyMediaBox(label: 'Not captured', height: 96, onTap: onEmptyTap),
+        if (exists) ...[
+          const SizedBox(height: 6),
+          Text(
+            asset!.readableSize,
+            style: const TextStyle(fontSize: 12, color: BrandColors.muted),
           ),
+        ],
       ],
     );
   }
 }
 
 class _EmptyMediaBox extends StatelessWidget {
-  const _EmptyMediaBox({required this.label, required this.onTap, this.height});
+  const _EmptyMediaBox({
+    required this.label,
+    required this.height,
+    required this.onTap,
+  });
 
   final String label;
+  final double height;
   final VoidCallback onTap;
-  final double? height;
 
   @override
   Widget build(BuildContext context) {
@@ -542,17 +526,27 @@ class _EmptyMediaBox extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: height,
+        width: double.infinity,
         decoration: BoxDecoration(
           color: BrandColors.surfaceAlt,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: BrandColors.danger),
         ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: BrandColors.danger),
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.add_a_photo_outlined,
+              color: BrandColors.danger,
+              size: 22,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: BrandColors.danger),
+            ),
+          ],
         ),
       ),
     );

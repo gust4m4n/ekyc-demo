@@ -11,9 +11,11 @@ import '../utils/validators.dart';
 import '../widgets/guideline_list.dart';
 import '../widgets/step_scaffold.dart';
 import '../widgets/video_preview_player.dart';
-import 'review_screen.dart';
+import 'selfie_screen.dart';
 
-/// Step 6 — liveness video, powered by the bundled `liveness_sdk`.
+/// Step 2 — liveness video, powered by the bundled `liveness_sdk`.
+///
+/// Proof of presence is captured first, before any photo is taken.
 class LivenessScreen extends StatefulWidget {
   const LivenessScreen({super.key, this.returnToReview = false});
 
@@ -114,7 +116,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
     }
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const ReviewScreen()));
+    ).push(MaterialPageRoute(builder: (_) => const SelfieScreen()));
   }
 
   @override
@@ -122,7 +124,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
     final file = _pendingFile;
 
     return StepScaffold(
-      step: 6,
+      step: 2,
       title: 'Liveness video',
       actions: file == null
           ? ElevatedButton.icon(
